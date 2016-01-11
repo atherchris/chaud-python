@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #
-# Copyright (c) 2015, Christopher Atherton <the8lack8ox@gmail.com>
+# Copyright (c) 2016, Christopher Atherton <the8lack8ox@gmail.com>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -827,36 +827,27 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 	if out_ext not in FORMAT_EXT_MAP.values():
 		raise Exception( 'The ' + out_ext + ' format is not supported and cannot be encoded.' )
 
-	if os.path.exists( out_path ):
-		initial_out_path = free_filename( os.path.splitext( out_path )[1] )
-	else:
-		initial_out_path = out_path
-
-	# Subprocess output
-	dec_out = tempfile.TemporaryFile()
-	enc_out = tempfile.TemporaryFile()
-
 	# Setup decode process
 	if in_ext == '.m4a':
-		dec_proc = subprocess.Popen( ( 'neroAacDec', '-if', in_path, '-of', '-' ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'neroAacDec', '-if', in_path, '-of', '-' ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	elif in_ext == '.flac':
-		dec_proc = subprocess.Popen( ( 'flac', '--decode', '--stdout', in_path ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'flac', '--decode', '--stdout', in_path ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	elif in_ext == '.mp3':
-		dec_proc = subprocess.Popen( ( 'lame', '--decode', in_path, '-' ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'lame', '--decode', in_path, '-' ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	elif in_ext == '.opus':
-		dec_proc = subprocess.Popen( ( 'opusdec', in_path, '-' ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'opusdec', in_path, '-' ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	elif in_ext == '.ogg':
-		dec_proc = subprocess.Popen( ( 'oggdec',  '--output=-', in_path ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'oggdec',  '--output=-', in_path ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	elif in_ext == '.wav':
-		dec_proc = subprocess.Popen( ( 'cat', in_path ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'cat', in_path ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	elif in_ext == '.wv':
-		dec_proc = subprocess.Popen( ( 'wvunpack', in_path, '-o', '-' ), stdout=subprocess.PIPE, stderr=dec_out )
+		dec_proc = subprocess.Popen( ( 'wvunpack', in_path, '-o', '-' ), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	else:
 		assert False
 
 	# Setup encode process
 	if out_ext == '.m4a':
-		enc_proc = subprocess.Popen( ( 'neroAacEnc', '-q', '0.4', '-if', '-', '-of', initial_out_path ), stdin=dec_proc.stdout, stdout=enc_out, stderr=subprocess.STDOUT )
+		enc_proc = subprocess.Popen( ( 'neroAacEnc', '-q', '0.4', '-if', '-', '-of', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.flac':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -877,7 +868,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '--tag=COMMENT=' + tag['comment'], )
 		if 'cover' in tag:
 			tag_args += ( '--picture=' + tag['cover'], )
-		enc_proc = subprocess.Popen( ( 'flac', ) + tag_args + ( '--output-name=' + initial_out_path, '-' ), stdin=dec_proc.stdout, stdout=enc_out, stderr=subprocess.STDOUT )
+		enc_proc = subprocess.Popen( ( 'flac', ) + tag_args + ( '--output-name=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.mp3':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -898,7 +889,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '--tc', tag['comment'] )
 		if 'cover' in tag:
 			tag_args += ( '--ti', tag['cover'] )
-		enc_proc = subprocess.Popen( ( 'lame', '-V', '0' ) + tag_args + ( '-', initial_out_path ), stdin=dec_proc.stdout, stdout=enc_out, stderr=subprocess.STDOUT )
+		enc_proc = subprocess.Popen( ( 'lame', '-V', '0' ) + tag_args + ( '-', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.opus':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -922,7 +913,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 				tag_args += ( '--picture', '|image/jpeg|||' + tag['cover'] )
 			else:
 				tag_args += ( '--picture', tag['cover'] )
-		enc_proc = subprocess.Popen( ( 'opusenc', ) + tag_args + ( '-', initial_out_path ), stdin=dec_proc.stdout, stdout=enc_out, stderr=subprocess.STDOUT )
+		enc_proc = subprocess.Popen( ( 'opusenc', ) + tag_args + ( '-', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.ogg':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -941,9 +932,9 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '--date', str( tag['year'] ) )
 		if 'comment' in tag:
 			tag_args += ( '--comment', 'comment=' + tag['comment'] )
-		enc_proc = subprocess.Popen( ( 'oggenc', ) + tag_args + ( '--output=' + initial_out_path, '-' ), stdin=dec_proc.stdout, stdout=enc_out, stderr=subprocess.STDOUT )
+		enc_proc = subprocess.Popen( ( 'oggenc', ) + tag_args + ( '--output=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.wav':
-		enc_proc = subprocess.Popen( ( 'tee', initial_out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=enc_out )
+		enc_proc = subprocess.Popen( ( 'tee', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.wv':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -964,7 +955,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '-w', 'Comment=' + tag['comment'] )
 		if 'cover' in tag:
 			tag_args += ( '--write-binary-tag', 'Cover Art (Front)=@' + tag['cover'] )
-		enc_proc = subprocess.Popen( ( 'wavpack', ) + tag_args + ( '-', '-o', initial_out_path ), stdin=dec_proc.stdout, stdout=enc_out, stderr=subprocess.STDOUT )
+		enc_proc = subprocess.Popen( ( 'wavpack', ) + tag_args + ( '-', '-o', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	else:
 		assert False
 
@@ -996,7 +987,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '-meta:comment=' + tag['comment'], )
 		if 'cover' in tag:
 			tag_args += ( '-add-cover:front:' + tag['cover'], )
-		subprocess.check_call( ( 'neroAacTag', initial_out_path ) + tag_args, stdout=enc_out, stderr=subprocess.STDOUT )
+		subprocess.check_call( ( 'neroAacTag', out_path ) + tag_args, stdout=enc_out, stderr=subprocess.DEVNULL )
 
 	# Finish tagging for Vorbis/Ogg
 	if 'cover' in tag and out_ext == '.ogg':
@@ -1006,16 +997,8 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 				vcf.write( base64.b64encode( write_metadatablockpicture( cover_file.read() ) ) )
 			vcf.write( b'\n' )
 			vcf_name = vcf.name
-		subprocess.check_call( ( 'vorbiscomment', '-a', initial_out_path, '-c', vcf_name ), stdout=enc_out, stderr=subprocess.STDOUT )
-
-	# Move new file
-	if out_path != initial_out_path:
-		shutil.move( initial_out_path, out_path )
-
-	# Done
-	dec_out.seek( 0 )
-	enc_out.seek( 0 )
-	return ( os.path.basename( in_path ), dec_out, os.path.basename( out_path ), enc_out )
+		subprocess.check_call( ( 'vorbiscomment', '-a', out_path, '-c', vcf_name ), stdout=enc_out, stderr=subprocess.DEVNULL )
+		os.remove( vcf_name )
 
 
 #
@@ -1031,7 +1014,6 @@ def main( argv=None ):
 	command_line_parser.add_argument( '-x', '--transcode', choices=FORMAT_EXT_MAP.keys(), help='transcode to a different format' )
 	command_line_parser.add_argument( '-r', '--recursive', action='store_true', help='allow directory input' )
 	command_line_parser.add_argument( '-f', '--force', action='store_true', help='allows output to overwrite input' )
-	command_line_parser.add_argument( '-v', '--verbose', action='store_true', help='show extra messages' )
 	command_line_parser.add_argument( 'infile', metavar='INFILE' )
 	command_line_parser.add_argument( 'outfile', nargs='?', metavar='OUTFILE', help='set new result location' )
 
@@ -1199,15 +1181,11 @@ def main( argv=None ):
 							else:
 								print( 'WARNING: Cannot overwrite ("', new_path, '") existing file without --force.  Skipping...', sep=str() )
 
+		counter = 0
 		for job in concurrent.futures.as_completed( jobs ):
-			in_path, dec_out, out_path, enc_out = job.result()
-			if command_line.verbose:
-				print( '=== Decoding messages for', in_path, '===' )
-				print( dec_out.read().decode() )
-				print( '\n' )
-				print( '=== Encoding messages for', out_path, '===' )
-				print( enc_out.read().decode() )
-				print( '\n' )
+			counter += 1
+			time_left = round( ( time.time() - process_start_time ) / counter * len( jobs ) - ( time.time() - process_start_time ) )
+			print( 'Progress =', counter, '/', len( jobs ), ';', 'about', str( time_left // 3600 ).zfill( 1 ) + ':' + str( time_left // 60 % 60 ).zfill( 2 ) + ':' + str( time_left % 60 ).zfill( 2 ), 'left', flush=True )
 
 	# Done
 	process_time = round( time.time() - process_start_time )
