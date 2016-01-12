@@ -48,10 +48,6 @@ PROGRAM_NAME='chaud'
 
 tmpdir = tempfile.TemporaryDirectory( prefix=PROGRAM_NAME+'-' )
 
-def free_filename( ext='.tmp' ):
-	with tempfile.NamedTemporaryFile( suffix=ext, dir=tmpdir.name ) as tf:
-		return tf.name
-
 FORMAT_EXT_MAP = {
 	'aac':		'.m4a',
 	'flac':		'.flac',
@@ -574,18 +570,13 @@ def get_tag( path ):
 				fields['comment'] = mat.group( 1 )
 				continue
 		if 'Cover (front)' in subprocess.check_output( ( 'metaflac', '--list', '--block-type=PICTURE', path ), stderr=subprocess.DEVNULL ).decode():
-			fields['cover'] = free_filename()
-			subprocess.check_output( ( 'metaflac', '--export-picture-to=' + fields['cover'], path ), stderr=subprocess.DEVNULL )
+			fields['cover'] = subprocess.check_output( ( 'metaflac', '--export-picture-to=-', path ), stderr=subprocess.DEVNULL )
 	elif ext == '.mp3':
 		with open( path, 'rb' ) as input_file:
 			input_data = input_file.read()
 		fields.update( read_id3v1( input_data ) )
 		fields.update( read_id3v2_header( input_data ) )
 		fields.update( read_id3v2_footer( input_data ) )
-		if 'cover' in fields:
-			with tempfile.NamedTemporaryFile( dir=tmpdir.name, delete=False ) as cover_file:
-				cover_file.write( fields['cover'] )
-				fields['cover'] = cover_file.name
 	elif ext == '.ogg':
 		for line in subprocess.check_output( ( 'vorbiscomment', '--list', path ), stderr=subprocess.DEVNULL ).decode().splitlines():
 			mat = VORBIS_TITLE_RE.match( line )
@@ -622,9 +613,7 @@ def get_tag( path ):
 				continue
 			mat = VORBIS_COVER_RE.match( line )
 			if mat:
-				with tempfile.NamedTemporaryFile( dir=tmpdir.name, delete=False ) as cover_file:
-					cover_file.write( read_metadatablockpicture( base64.b64decode( mat.group( 1 ) ) ) )
-					fields['cover'] = cover_file.name
+				fields['cover'] = read_metadatablockpicture( base64.b64decode( mat.group( 1 ) ) )
 				continue
 	elif ext == '.opus':
 		for line in subprocess.check_output( ( 'opusinfo', path ), stderr=subprocess.DEVNULL ).decode().splitlines():
@@ -699,8 +688,7 @@ def get_tag( path ):
 				continue
 			mat = WAVPACK_COVER_RE.match( line )
 			if mat:
-				fields['cover'] = free_filename()
-				subprocess.check_call( ( 'wvunpack', '-n', '-xx', 'Cover Art (Front)=' + fields['cover'], path ) )
+				fields['cover'] = subprocess.check_output( ( 'wvunpack', '-n', '-x', 'Cover Art (Front)', path ), stderr=subprocess.DEVNULL )
 				continue
 	else:
 		raise Exception( 'Reading tags from ' + ext + ' files is not supported.' )
@@ -739,8 +727,8 @@ def set_tag( path, tag ):
 		subprocess.check_call( ( 'neroAacTag', out_path ) + tag_args )
 	elif ext == '.flac':
 		# Strip metadata
-		subprocess.check_call( ( 'metadata', '--remove-all-tags', path ) )
-		subprocess.check_call( ( 'metadata', '--remove', '--block-type=PICTURE', path ) )
+		subprocess.check_call( ( 'metaflac', '--remove-all-tags', path ) )
+		subprocess.check_call( ( 'metaflac', '--remove', '--block-type=PICTURE', path ) )
 		# Add metadata
 		tag_args = tuple()
 		if 'title' in tag:
@@ -759,9 +747,12 @@ def set_tag( path, tag ):
 			tag_args += ( '--set-tag=DATE=' + str( tag['year'] ), )
 		if 'comment' in tag:
 			tag_args += ( '--set-tag=COMMENT=' + tag['comment'], )
-		if 'cover' in tag:
-			tag_args += ( '--import-picture-from=' + tag['cover'], )
-		subprocess.check_call( ( 'metaflac', ) + tag_args + ( path ) )
+		with tempfile.NamedTemporaryFile( dir=tmpdir.name ) as cover_file:
+			if 'cover' in tag:
+				cover_file.write( tag['cover'] )
+				tag_args += ( '--import-picture-from=' + cover_file.name, )
+				cover_file.flush()
+			subprocess.check_call( ( 'metaflac', ) + tag_args + ( path, ) )
 	elif ext == '.mp3':
 		with open( path, 'rb' ) as mp3_file:
 			mp3_data = mp3_file.read()
@@ -796,13 +787,12 @@ def set_tag( path, tag ):
 		subprocess.check_call( ( 'vorbiscomment', '--write', tag_args, path ) )
 		# Set cover
 		if 'cover' in tag:
-			with tempfile.NamedTemporaryFile( dir=tmpdir.name, delete=False ) as vcf:
+			with tempfile.NamedTemporaryFile( dir=tmpdir.name ) as vcf:
 				vcf.write( b'METADATA_BLOCK_PICTURE=' )
-				with open( tag['cover'], 'rb' ) as cover_file:
-					vcf.write( base64.b64encode( write_metadatablockpicture( cover_file.read() ) ) )
+				vcf.write( base64.b64encode( write_metadatablockpicture( tag['cover'] ) ) )
 				vcf.write( b'\n' )
-				vcf_name = vcf.name
-			subprocess.check_call( ( 'vorbiscomment', '-a', out_path, '-c', vcf_name ) )
+				vcf.flush()
+				subprocess.check_call( ( 'vorbiscomment', '-a', out_path, '-c', vcf.name ) )
 	elif ext == '.opus':
 		raise Exception( 'Setting tags in ' + ext + ' files is not supported!' )
 	elif ext == '.wav':
@@ -846,8 +836,30 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		assert False
 
 	# Setup encode process
+	cover_file = tempfile.NamedTemporaryFile( dir=tmpdir.name )
 	if out_ext == '.m4a':
-		enc_proc = subprocess.Popen( ( 'neroAacEnc', '-q', '0.4', '-if', '-', '-of', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		tag_args = tuple()
+		if 'title' in tag:
+			tag_args += ( '--title', tag['title'] )
+		if 'artist' in tag:
+			tag_args += ( '--artist', tag['artist'] )
+		if 'album' in tag:
+			tag_args += ( '--album', tag['album'] )
+		if 'track' in tag:
+			tag_args += ( '--track', str( tag['track'] ) )
+		if 'disc' in tag:
+			tag_args += ( '--disk', str( tag['disc'] ) )
+		if 'genre' in tag:
+			tag_args += ( '--genre', tag['genre'] )
+		if 'year' in tag:
+			tag_args += ( '--date', str( tag['year'] ) )
+		if 'comment' in tag:
+			tag_args += ( '--comment', tag['comment'] )
+		if 'cover' in tag:
+			cover_file.write( tag['cover'] )
+			tag_args += ( '--tag-from-file', 'covr:' + cover_file.name )
+			cover_file.flush()
+		enc_proc = subprocess.Popen( ( 'fdkaac', '-m', '4' ) + tag_args + ( '-o', out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.flac':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -867,8 +879,10 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'comment' in tag:
 			tag_args += ( '--tag=COMMENT=' + tag['comment'], )
 		if 'cover' in tag:
-			tag_args += ( '--picture=' + tag['cover'], )
-		enc_proc = subprocess.Popen( ( 'flac', ) + tag_args + ( '--output-name=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+			cover_file.write( tag['cover'] )
+			tag_args += ( '--picture=' + cover_file.name, )
+			cover_file.flush()
+		enc_proc = subprocess.Popen( ( 'flac', '--best' ) + tag_args + ( '--output-name=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.mp3':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -888,7 +902,9 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'comment' in tag:
 			tag_args += ( '--tc', tag['comment'] )
 		if 'cover' in tag:
-			tag_args += ( '--ti', tag['cover'] )
+			cover_file.write( tag['cover'] )
+			tag_args += ( '--ti', cover_file.name )
+			cover_file.flush()
 		enc_proc = subprocess.Popen( ( 'lame', '-V', '0' ) + tag_args + ( '-', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.opus':
 		tag_args = tuple()
@@ -909,10 +925,12 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'comment' in tag:
 			tag_args += ( '--comment', 'comment=' + tag['comment'] )
 		if 'cover' in tag:
+			cover_file.write( tag['cover'] )
 			if imghdr.what( tag['cover'] ) == 'jpeg':
-				tag_args += ( '--picture', '|image/jpeg|||' + tag['cover'] )
+				tag_args += ( '--picture', '|image/jpeg|||' + cover_file.name )
 			else:
-				tag_args += ( '--picture', tag['cover'] )
+				tag_args += ( '--picture', cover_file.name )
+			cover_file.flush()
 		enc_proc = subprocess.Popen( ( 'opusenc', ) + tag_args + ( '-', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.ogg':
 		tag_args = tuple()
@@ -933,6 +951,12 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'comment' in tag:
 			tag_args += ( '--comment', 'comment=' + tag['comment'] )
 		enc_proc = subprocess.Popen( ( 'oggenc', ) + tag_args + ( '--output=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		if 'cover' in tag:
+			cover_file.write( b'METADATA_BLOCK_PICTURE=' )
+			cover_file.write( base64.b64encode( write_metadatablockpicture( tag['cover'] ) ) )
+			cover_file.write( b'\n' )
+			cover_file.flush()
+			subprocess.check_call( ( 'vorbiscomment', '-a', out_path, '-c', cover_file.name ), stdout=enc_out, stderr=subprocess.DEVNULL )
 	elif out_ext == '.wav':
 		enc_proc = subprocess.Popen( ( 'tee', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.wv':
@@ -954,7 +978,9 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'comment' in tag:
 			tag_args += ( '-w', 'Comment=' + tag['comment'] )
 		if 'cover' in tag:
-			tag_args += ( '--write-binary-tag', 'Cover Art (Front)=@' + tag['cover'] )
+			cover_file.write( tag['cover'] )
+			tag_args += ( '--write-binary-tag', 'Cover Art (Front)=@' + cover_file.name )
+			cover_file.flush()
 		enc_proc = subprocess.Popen( ( 'wavpack', ) + tag_args + ( '-', '-o', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	else:
 		assert False
@@ -965,40 +991,6 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		raise Exception( 'Error occurred in ' + in_ext + ' decoding process.' )
 	if enc_proc.wait():
 		raise Exception( 'Error occurred in ' + out_ext + ' encoding process.' )
-
-	# Finish tagging for AAC/M4A
-	if out_ext == '.m4a':
-		tag_args = tuple()
-		if 'title' in tag:
-			tag_args += ( '-meta:title=' + tag['title'], )
-		if 'artist' in tag:
-			tag_args += ( '-meta:artist=' + tag['artist'], )
-		if 'album' in tag:
-			tag_args += ( '-meta:album=' + tag['album'], )
-		if 'track' in tag:
-			tag_args += ( '-meta:track=' + str( tag['track'] ), )
-		if 'disc' in tag:
-			tag_args += ( '-meta:disc=' + str( tag['disc'] ), )
-		if 'genre' in tag:
-			tag_args += ( '-meta:genre=' + tag['genre'], )
-		if 'year' in tag:
-			tag_args += ( '-meta:year=' + str( tag['year'] ), )
-		if 'comment' in tag:
-			tag_args += ( '-meta:comment=' + tag['comment'], )
-		if 'cover' in tag:
-			tag_args += ( '-add-cover:front:' + tag['cover'], )
-		subprocess.check_call( ( 'neroAacTag', out_path ) + tag_args, stdout=enc_out, stderr=subprocess.DEVNULL )
-
-	# Finish tagging for Vorbis/Ogg
-	if 'cover' in tag and out_ext == '.ogg':
-		with tempfile.NamedTemporaryFile( dir=tmpdir.name, delete=False ) as vcf:
-			vcf.write( b'METADATA_BLOCK_PICTURE=' )
-			with open( tag['cover'], 'rb' ) as cover_file:
-				vcf.write( base64.b64encode( write_metadatablockpicture( cover_file.read() ) ) )
-			vcf.write( b'\n' )
-			vcf_name = vcf.name
-		subprocess.check_call( ( 'vorbiscomment', '-a', out_path, '-c', vcf_name ), stdout=enc_out, stderr=subprocess.DEVNULL )
-		os.remove( vcf_name )
 
 
 #
