@@ -843,26 +843,71 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 
 	# Setup encode process
 	if out_ext == '.m4a':
-		tag_args = tuple()
-		if 'title' in tag:
-			tag_args += ( '--title', tag['title'] )
-		if 'artist' in tag:
-			tag_args += ( '--artist', tag['artist'] )
-		if 'album' in tag:
-			tag_args += ( '--album', tag['album'] )
-		if 'track' in tag:
-			tag_args += ( '--track', str( tag['track'] ) )
-		if 'disc' in tag:
-			tag_args += ( '--disk', str( tag['disc'] ) )
-		if 'genre' in tag:
-			tag_args += ( '--genre', tag['genre'] )
-		if 'year' in tag:
-			tag_args += ( '--date', str( tag['year'] ) )
-		if 'comment' in tag:
-			tag_args += ( '--comment', tag['comment'] )
-		if 'cover' in tag:
-			tag_args += ( '--tag-from-file', 'covr:' + tag['cover'] )
-		enc_proc = subprocess.Popen( ( 'fdkaac', '-m', '4' ) + tag_args + ( '-o', out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		if shutil.which( 'ffmpeg' ) is not None:
+			tag_args = tuple()
+			if 'title' in tag:
+				tag_args += ( '-metadata', 'title=' + tag['title'] )
+			if 'artist' in tag:
+				tag_args += ( '-metadata', 'artist=' + tag['artist'] )
+			if 'album' in tag:
+				tag_args += ( '-metadata', 'album=' + tag['album'] )
+			if 'track' in tag:
+				tag_args += ( '-metadata', 'track=' + str( tag['track'] ) )
+			if 'disc' in tag:
+				tag_args += ( '-metadata', 'disc=' + str( tag['disc'] ) )
+			if 'genre' in tag:
+				tag_args += ( '-metadata', 'genre=' + tag['genre'] )
+			if 'year' in tag:
+				tag_args += ( '-metadata', 'year=' + str( tag['year'] ) )
+			if 'comment' in tag:
+				tag_args += ( '-metadata', 'comment=' + tag['comment'] )
+			enc_proc = subprocess.Popen( ( 'ffmpeg', '-i', '-', '-strict', 'experimental' ) + tag_args + ( '-c:a', 'aac', '-q:a', '1.5', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		elif shutil.which( 'fdkaac' ) is not None:
+			tag_args = tuple()
+			if 'title' in tag:
+				tag_args += ( '--title', tag['title'] )
+			if 'artist' in tag:
+				tag_args += ( '--artist', tag['artist'] )
+			if 'album' in tag:
+				tag_args += ( '--album', tag['album'] )
+			if 'track' in tag:
+				tag_args += ( '--track', str( tag['track'] ) )
+			if 'disc' in tag:
+				tag_args += ( '--disk', str( tag['disc'] ) )
+			if 'genre' in tag:
+				tag_args += ( '--genre', tag['genre'] )
+			if 'year' in tag:
+				tag_args += ( '--date', str( tag['year'] ) )
+			if 'comment' in tag:
+				tag_args += ( '--comment', tag['comment'] )
+			if 'cover' in tag:
+				tag_args += ( '--tag-from-file', 'covr:' + tag['cover'] )
+			enc_proc = subprocess.Popen( ( 'fdkaac', '-m', '4' ) + tag_args + ( '-o', out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		elif shutil.which( 'neroAacEnc' ) is not None:
+			enc_proc = subprocess.Popen( ( 'neroAacEnc', '-ignorelength', '-q', '0.4', '-if', '-', '-of', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		elif shutil.which( 'faac' ) is not None:
+			tag_args = tuple()
+			if 'title' in tag:
+				tag_args += ( '--title', tag['title'] )
+			if 'artist' in tag:
+				tag_args += ( '--artist', tag['artist'] )
+			if 'album' in tag:
+				tag_args += ( '--album', tag['album'] )
+			if 'track' in tag:
+				tag_args += ( '--track', str( tag['track'] ) )
+			if 'disc' in tag:
+				tag_args += ( '--disc', str( tag['disc'] ) )
+			if 'genre' in tag:
+				tag_args += ( '--genre', tag['genre'] )
+			if 'year' in tag:
+				tag_args += ( '--year', str( tag['year'] ) )
+			if 'comment' in tag:
+				tag_args += ( '--comment', tag['comment'] )
+			if 'cover' in tag:
+				tag_args += ( '--cover-art', tag['cover'] )
+			enc_proc = subprocess.Popen( ( 'faac', ) + tag_args + ( '-o', out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		else:
+			raise Exception( 'No suitable AAC compressor found!' )
 	elif out_ext == '.flac':
 		tag_args = tuple()
 		if 'title' in tag:
@@ -983,6 +1028,33 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		raise Exception( 'Error occurred in ' + in_ext + ' decoding process.' )
 	if enc_proc.wait():
 		raise Exception( 'Error occurred in ' + out_ext + ' encoding process.' )
+
+	if out_ext == '.m4a':
+		if shutil.which( 'ffmpeg' ) is not None:
+			if 'cover' in tag:
+				subprocess.check_call( ( 'MP4Box', '-itags', 'cover=' + tag['cover'], out_path ), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		elif shutil.which( 'fdkaac' ) is not None:
+			pass
+		elif shutil.which( 'neroAacTag' ) is not None:
+			tag_args = tuple()
+			if 'title' in tag:
+				tag_args += ( '-meta:title=' + tag['title'], )
+			if 'artist' in tag:
+				tag_args += ( '-meta:artist=' + tag['artist'], )
+			if 'album' in tag:
+				tag_args += ( '-meta:album=' + tag['album'], )
+			if 'track' in tag:
+				tag_args += ( '-meta:track=' + str( tag['track'] ), )
+			if 'disc' in tag:
+				tag_args += ( '-meta:disc=' + str( tag['disc'] ), )
+			if 'genre' in tag:
+				tag_args += ( '-meta:genre=' + tag['genre'], )
+			if 'year' in tag:
+				tag_args += ( '-meta:year=' + str( tag['year'] ), )
+			if 'comment' in tag:
+				tag_args += ( '-meta:comment=' + tag['comment'], )
+			if 'cover' in tag:
+				tag_args += ( '-add-cover:front:' + tag['cover'], )
 
 	if out_ext == '.ogg' and 'cover' in tag:
 		with tempfile.NamedTemporaryFile( suffix='.tmp', dir=tmpdir.name ) as vcf:
