@@ -580,9 +580,10 @@ def get_tag( path ):
 		fields.update( read_id3v1( input_data ) )
 		fields.update( read_id3v2_header( input_data ) )
 		fields.update( read_id3v2_footer( input_data ) )
-		with open( free_filename() ) as cover_file:
-			cover_file.write( fields['cover'] )
-			fields['cover'] = cover_file.name
+		if 'cover' in fields:
+			with open( free_filename(), 'w' ) as cover_file:
+				cover_file.write( fields['cover'] )
+				fields['cover'] = cover_file.name
 	elif ext == '.ogg':
 		for line in subprocess.check_output( ( 'vorbiscomment', '--list', path ), stderr=subprocess.DEVNULL ).decode().splitlines():
 			mat = VORBIS_TITLE_RE.match( line )
