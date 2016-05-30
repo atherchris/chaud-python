@@ -859,7 +859,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			if 'genre' in tag:
 				tag_args += ( '-metadata', 'genre=' + tag['genre'] )
 			if 'year' in tag:
-				tag_args += ( '-metadata', 'year=' + str( tag['year'] ) )
+				tag_args += ( '-metadata', 'date=' + str( tag['year'] ) )
 			if 'comment' in tag:
 				tag_args += ( '-metadata', 'comment=' + tag['comment'] )
 			enc_proc = subprocess.Popen( ( 'ffmpeg', '-i', '-', '-strict', 'experimental' ) + tag_args + ( '-c:a', 'aac', '-q:a', '1.5', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
