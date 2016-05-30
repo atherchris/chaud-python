@@ -1056,6 +1056,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 				tag_args += ( '-meta:comment=' + tag['comment'], )
 			if 'cover' in tag:
 				tag_args += ( '-add-cover:front:' + tag['cover'], )
+			subprocess.check_call( ( 'neroAacTag', out_path ) + tag_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 
 	if out_ext == '.ogg' and 'cover' in tag:
 		with tempfile.NamedTemporaryFile( suffix='.tmp', dir=tmpdir.name ) as vcf:
