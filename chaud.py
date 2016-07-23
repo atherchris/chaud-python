@@ -862,7 +862,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 				tag_args += ( '-metadata', 'date=' + str( tag['year'] ) )
 			if 'comment' in tag:
 				tag_args += ( '-metadata', 'comment=' + tag['comment'] )
-			enc_proc = subprocess.Popen( ( 'ffmpeg', '-i', '-' ) + tag_args + ( '-c:a', 'aac', '-q:a', '1.5', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+			enc_proc = subprocess.Popen( ( 'ffmpeg', '-i', '-' ) + tag_args + ( '-c:a', 'aac', '-q:a', '1.0', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 		elif shutil.which( 'fdkaac' ) is not None:
 			tag_args = tuple()
 			if 'title' in tag:
