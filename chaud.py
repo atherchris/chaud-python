@@ -44,7 +44,6 @@ import multiprocessing
 import subprocess
 
 PROGRAM_NAME='chaud'
-"""Change Audio"""
 
 tmpdir = tempfile.TemporaryDirectory( prefix=PROGRAM_NAME+'-' )
 
@@ -1158,8 +1157,11 @@ def main( argv=None ):
 			# inplace
 			if os.path.isfile( command_line.infile ):
 				# non recursive
-				tag = get_tag( command_line.infile )
-				tag.update( new_tag )
+				if command_line.discard:
+					tag = new_tag
+				else:
+					tag = get_tag( command_line.infile )
+					tag.update( new_tag )
 				tag = { k:v for k, v in tag.items() if ( v != 0 or len( v ) > 0 ) }
 				if command_line.transcode is None:
 					# don't transcode
@@ -1178,8 +1180,11 @@ def main( argv=None ):
 						path = os.path.join( dirname, filename )
 						head, tail = os.path.splitext( path )
 						if tail.lower() in FORMAT_EXT_MAP.values():
-							tag = get_tag( path )
-							tag.update( new_tag )
+							if command_line.discard:
+								tag = new_tag
+							else:
+								tag = get_tag( path )
+								tag.update( new_tag )
 							tag = { k:v for k, v in tag.items() if ( v != 0 or len( v ) > 0 ) }
 							if command_line.transcode is None:
 								# don't transcode
@@ -1195,8 +1200,11 @@ def main( argv=None ):
 			# new file
 			if os.path.isfile( command_line.infile ):
 				# non recursive
-				tag = get_tag( command_line.infile )
-				tag.update( new_tag )
+				if command_line.discard:
+					tag = new_tag
+				else:
+					tag = get_tag( command_line.infile )
+					tag.update( new_tag )
 				tag = { k:v for k, v in tag.items() if ( v != 0 or len( v ) > 0 ) }
 				if command_line.transcode is None and os.path.splitext( command_line.infile )[1].lower() == os.path.splitext( command_line.outfile )[1].lower():
 					# don't transcode
@@ -1222,8 +1230,11 @@ def main( argv=None ):
 						for filename in filenames:
 							old_path = os.path.join( old_dirpath, filename )
 							new_path = os.path.join( new_dirpath, filename )
-							tag = get_tag( old_path )
-							tag.update( new_tag )
+							if command_line.discard:
+								tag = new_tag
+							else:
+								tag = get_tag( old_path )
+								tag.update( new_tag )
 							tag = { k:v for k, v in tag.items() if ( v != 0 or len( v ) > 0 ) }
 							if not os.path.exists( new_path ) or command_line.force:
 								shutil.copy( old_path, new_path )
@@ -1239,8 +1250,11 @@ def main( argv=None ):
 						for filename in filenames:
 							old_path = os.path.join( old_dirpath, filename )
 							new_path = os.path.join( new_dirpath, os.path.splitext( filename )[0] + FORMAT_EXT_MAP[command_line.transcode] )
-							tag = get_tag( old_path )
-							tag.update( new_tag )
+							if command_line.discard:
+								tag = new_tag
+							else:
+								tag = get_tag( old_path )
+								tag.update( new_tag )
 							tag = { k:v for k, v in tag.items() if ( v != 0 or len( v ) > 0 ) }
 							if not os.path.exists( new_path ) or command_line.force:
 								jobs.append( executor.submit( convert_audio_format, old_path, new_path, tag ) )
