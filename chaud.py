@@ -843,26 +843,26 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 
 	# Setup encode process
 	if out_ext == '.m4a':
-		if shutil.which( 'ffmpeg' ) is not None:
-			tag_args = tuple()
-			if 'title' in tag:
-				tag_args += ( '-metadata', 'title=' + tag['title'] )
-			if 'artist' in tag:
-				tag_args += ( '-metadata', 'artist=' + tag['artist'] )
-			if 'album' in tag:
-				tag_args += ( '-metadata', 'album=' + tag['album'] )
-			if 'track' in tag:
-				tag_args += ( '-metadata', 'track=' + str( tag['track'] ) )
-			if 'disc' in tag:
-				tag_args += ( '-metadata', 'disc=' + str( tag['disc'] ) )
-			if 'genre' in tag:
-				tag_args += ( '-metadata', 'genre=' + tag['genre'] )
-			if 'year' in tag:
-				tag_args += ( '-metadata', 'date=' + str( tag['year'] ) )
-			if 'comment' in tag:
-				tag_args += ( '-metadata', 'comment=' + tag['comment'] )
-			enc_proc = subprocess.Popen( ( 'ffmpeg', '-i', '-' ) + tag_args + ( '-c:a', 'aac', '-q:a', '1.0', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
-		elif shutil.which( 'fdkaac' ) is not None:
+		#if shutil.which( 'ffmpeg' ) is not None:
+		#	tag_args = tuple()
+		#	if 'title' in tag:
+		#		tag_args += ( '-metadata', 'title=' + tag['title'] )
+		#	if 'artist' in tag:
+		#		tag_args += ( '-metadata', 'artist=' + tag['artist'] )
+		#	if 'album' in tag:
+		#		tag_args += ( '-metadata', 'album=' + tag['album'] )
+		#	if 'track' in tag:
+		#		tag_args += ( '-metadata', 'track=' + str( tag['track'] ) )
+		#	if 'disc' in tag:
+		#		tag_args += ( '-metadata', 'disc=' + str( tag['disc'] ) )
+		#	if 'genre' in tag:
+		#		tag_args += ( '-metadata', 'genre=' + tag['genre'] )
+		#	if 'year' in tag:
+		#		tag_args += ( '-metadata', 'date=' + str( tag['year'] ) )
+		#	if 'comment' in tag:
+		#		tag_args += ( '-metadata', 'comment=' + tag['comment'] )
+		#	enc_proc = subprocess.Popen( ( 'ffmpeg', '-i', '-' ) + tag_args + ( '-c:a', 'aac', '-q:a', '1.0', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+		if shutil.which( 'fdkaac' ) is not None:
 			tag_args = tuple()
 			if 'title' in tag:
 				tag_args += ( '--title', tag['title'] )
@@ -992,8 +992,9 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '--date', str( tag['year'] ) )
 		if 'comment' in tag:
 			tag_args += ( '--comment', 'comment=' + tag['comment'] )
+		if 'cover' in tag:
+			tag_args += ( '--picture', tag['cover'] )
 		enc_proc = subprocess.Popen( ( 'oggenc', ) + tag_args + ( '--output=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
-		# Add cover later
 	elif out_ext == '.wav':
 		enc_proc = subprocess.Popen( ( 'tee', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.wv':
