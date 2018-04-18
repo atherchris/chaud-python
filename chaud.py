@@ -580,7 +580,7 @@ def get_tag( path ):
 		fields.update( read_id3v2_header( input_data ) )
 		fields.update( read_id3v2_footer( input_data ) )
 		if 'cover' in fields:
-			with open( free_filename(), 'w' ) as cover_file:
+			with open( free_filename(), 'wb' ) as cover_file:
 				cover_file.write( fields['cover'] )
 				fields['cover'] = cover_file.name
 	elif ext == '.ogg':
