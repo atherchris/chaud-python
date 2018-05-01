@@ -969,10 +969,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'comment' in tag:
 			tag_args += ( '--comment', 'comment=' + tag['comment'] )
 		if 'cover' in tag:
-			if imghdr.what( tag['cover'] ) == 'jpeg':
-				tag_args += ( '--picture', '|image/jpeg|||' + tag['cover'] )
-			else:
-				tag_args += ( '--picture', tag['cover'] )
+			tag_args += ( '--picture', tag['cover'] )
 		enc_proc = subprocess.Popen( ( 'opusenc', ) + tag_args + ( '-', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.ogg':
 		tag_args = tuple()
