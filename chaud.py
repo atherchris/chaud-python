@@ -45,6 +45,8 @@ import subprocess
 
 PROGRAM_NAME='chaud'
 
+THREAD_COUNT = multiprocessing.cpu_count()
+
 tmpdir = tempfile.TemporaryDirectory( prefix=PROGRAM_NAME+'-' )
 
 def free_filename( ext='.tmp' ):
@@ -483,6 +485,8 @@ def write_metadatablockpicture( picture_path ):
 	else:
 		mbp += b'\x00\x00\x00\x00'
 	# Picture data
+	with open( picture_path, "rb" ) as picture_file:
+		picture = picture_file.read()
 	mbp += len( picture ).to_bytes( 4, 'big' )
 	mbp += picture
 	# Done
@@ -989,8 +993,6 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 			tag_args += ( '--date', str( tag['year'] ) )
 		if 'comment' in tag:
 			tag_args += ( '--comment', 'comment=' + tag['comment'] )
-		if 'cover' in tag:
-			tag_args += ( '--picture', tag['cover'] )
 		enc_proc = subprocess.Popen( ( 'oggenc', ) + tag_args + ( '--output=' + out_path, '-' ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 	elif out_ext == '.wav':
 		enc_proc = subprocess.Popen( ( 'tee', out_path ), stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
@@ -1149,7 +1151,7 @@ def main( argv=None ):
 		new_tag['cover'] = command_line.cover
 
 	# Execute/generate main task
-	with concurrent.futures.ThreadPoolExecutor( multiprocessing.cpu_count() ) as executor:
+	with concurrent.futures.ThreadPoolExecutor( THREAD_COUNT ) as executor:
 		jobs = list()
 		if command_line.outfile is None:
 			# inplace
