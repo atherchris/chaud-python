@@ -963,7 +963,7 @@ def convert_audio_format( in_path, out_path, tag=dict() ):
 		if 'album' in tag:
 			tag_args += ( '--album', tag['album'] )
 		if 'track' in tag:
-			tag_args += ( '--comment', 'tracknumber=' + str( tag['track'] ) )
+			tag_args += ( '--tracknumber', str( tag['track'] ) )
 		if 'disc' in tag:
 			tag_args += ( '--comment', 'discnumber=' + str( tag['disc'] ) )
 		if 'genre' in tag:
